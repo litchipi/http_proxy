@@ -28,7 +28,9 @@ class HttpProxy:
                 for key, val in header.items() if key not in IGNORED_HEADER_KEYS]) + \
             b'\r\n\r\n' + payload
 
-    def create_response(self, header, payload, ignored_keys=[]):
+    def create_response(self, user_header, payload, ignored_keys=[]):
+        header = {"code": 200, "message":"OK", "protocol":"HTTP1/1"}
+        header.update(user_header)
         IGNORED_HEADER_KEYS = ["code", "message", "protocol"] + ignored_keys
         return "{} {} {}".format(header["protocol"], header["code"], header["message"]).encode() + \
             b'\r\n'.join([b''] + ["{}: {}".format(key, val).encode()
