@@ -53,9 +53,12 @@ class HttpProxy:
                     header["protocol"] = line.split(" ")[2]
                     first = False
                 else:
-                    header["protocol"] = line.split(" ")[0]
-                    header["code"] = line.split(" ")[1]
-                    header["message"] = line.split(" ")[2]
+                    try:
+                        header["protocol"] = line.split(" ")[0]
+                        header["code"] = line.split(" ")[1]
+                        header["message"] = line.split(" ")[2]
+                    except:
+                        print(line)
                     first = False
             elif ": " in line:
                 header[line.split(": ")[0]] = line.split(": ")[1]
@@ -99,7 +102,6 @@ class HttpProxy:
             print("Error while getting IP of host", hostname)
             return
 
-        print(f"{snb} [***] Creating remote socket")
         remote_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             remote_socket.connect((dst_ip, port))
@@ -109,25 +111,20 @@ class HttpProxy:
 
         while True:
             if len(local_buffer):
-                print(f"{snb} [==>] Received %d bytes from localhost." % len(local_buffer))
                 (header, payload) = self.get_header(local_buffer)
                 (header, payload) = self.handler.handle_request(header, payload)
                 header["Content-Length"] = len(payload)
                 remote_socket.sendall(self.create_request(header, payload))
-                print(f"{snb} [==>] Sent to remote.")
 
             remote_buffer = receive_from(remote_socket)
             if len(remote_buffer):
-                print(f"{snb} [<==] Received %d bytes from remote." % len(remote_buffer))
                 (header, payload) = self.get_header(remote_buffer, req=False)
                 (header, payload) = self.handler.handle_response(header, payload)
                 client_socket.sendall(self.create_response(header, payload))
-                print(f"{snb} [<==] Sent to localhost.")
 
             if not len(local_buffer) or not len(remote_buffer):
                 client_socket.close()
                 remote_socket.close()
-                print(f"{snb} [*] No more data. Closing connections.")
                 break
 
             local_buffer = receive_from(client_socket)
@@ -137,8 +134,6 @@ class HttpProxy:
         self.server.listen(64)
         while True:
             client_socket, addr = self.server.accept()
-            line = "> Received incoming connection from %s:%d" % (addr[0], addr[1])
-            print(line)
             proxy_thread = threading.Thread(
                 target=self.proxy_handler,
                 args=(client_socket,)
