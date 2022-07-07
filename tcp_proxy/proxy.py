@@ -7,9 +7,10 @@ import threading
 from scapy.all import IP, TCP
 
 class HttpProxy:
-    def __init__(self, handler, local_port, remote_port=80):
+    def __init__(self, handler, local_port, remote_port=80, raw_handle=False):
         self.handler = handler
 
+        self.raw_handle = raw_handle
         self.local_port = local_port
         # TODO  Allow to add custom port to remote port
         self.remote_port = remote_port
@@ -113,15 +114,22 @@ class HttpProxy:
 
         while True:
             if len(local_buffer):
+                if self.raw_handle:
+                    local_buffer = self.handler.raw_handle_request(local_buffer)
                 (header, payload) = self.get_header(local_buffer)
-                (header, payload) = self.handler.handle_request(header, payload)
+                if not self.raw_handle:
+                    (header, payload) = self.handler.handle_request(header, payload)
                 header["Content-Length"] = len(payload)
                 remote_socket.sendall(self.create_request(header, payload))
 
             remote_buffer = receive_from(remote_socket)
             if len(remote_buffer):
+                if self.raw_handle:
+                    remote_buffer = self.handler.raw_handle_response(remote_buffer)
                 (header, payload) = self.get_header(remote_buffer, req=False)
-                (header, payload) = self.handler.handle_response(header, payload)
+                if not self.raw_handle:
+                    (header, payload) = self.handler.handle_response(header, payload)
+                header["Content-Length"] = len(payload)
                 client_socket.sendall(self.create_response(header, payload))
 
             if not len(local_buffer) or not len(remote_buffer):
